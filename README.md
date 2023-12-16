@@ -1,2 +1,2 @@
 # slimeOptimizer
-tell you where you stand in slime farm
+tell you where you stand in huge slime farm
