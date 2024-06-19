@@ -5,11 +5,14 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.*;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.swing.*;
 
 public class GUI implements ActionListener {
     JPanel panel = new JPanel();
     JFrame frame = new JFrame();
+    JPanel gridPanel = new JPanel();
     JTextField seed;
     JTextField cX;
     JTextField cZ;
@@ -19,6 +22,8 @@ public class GUI implements ActionListener {
     JLabel outputLabel;
     JTextArea output;
     JButton runButton;
+    JLabel XAxis;
+    JLabel ZAxis;
 
     public static void main(String[] args) {
         new GUI();
@@ -75,14 +80,39 @@ public class GUI implements ActionListener {
         this.panel.add(this.outputLabel);
         this.output = new JTextArea();
         this.output.setEditable(false);
-        this.output.setBounds(30, 150, 330, 240);
+        this.output.setBounds(30, 150, 330, 450);
         this.output.setBorder(BorderFactory.createEtchedBorder());
 
         // Wrap the JTextArea in a JScrollPane
         JScrollPane scrollPane = new JScrollPane(this.output);
-        scrollPane.setBounds(30, 150, 330, 240);
+        scrollPane.setBounds(30, 150, 330, 450);
         this.panel.add(scrollPane);
         this.frame.add(this.panel);
+
+        final int GRID_SIZE = 19;
+        final int CELL_SIZE = 30;
+        this.gridPanel.setLayout(new GridLayout(GRID_SIZE, GRID_SIZE, 0, 0));
+        this.gridPanel.setBounds(385, 30, GRID_SIZE * CELL_SIZE, GRID_SIZE * CELL_SIZE);
+
+        for (int i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
+            JPanel cell = new JPanel();
+            cell.setBorder(BorderFactory.createLineBorder(Color.lightGray));
+            cell.setBackground(Color.WHITE);
+            this.gridPanel.add(cell);
+        }
+
+        this.panel.add(this.gridPanel);
+        this.frame.add(this.panel);
+
+        /*
+        this.XAxis = new JLabel("X →");
+        this.XAxis.setBounds(655, 0, 60, 30);
+        this.panel.add(this.XAxis);
+        this.ZAxis = new JLabel("Z\n\n↓");
+        this.ZAxis.setBounds(360, 300, 60, 90);
+        this.panel.add(this.ZAxis);
+        
+         */
 
         // タイトルとウィンドウサイズの指定
 
@@ -90,13 +120,11 @@ public class GUI implements ActionListener {
         this.frame.setTitle("slimeOptimizer");
         this.frame.pack();
         this.frame.setResizable(false);
-        this.frame.setSize(405, 460);
+        this.frame.setSize(1000, 665);
         this.frame.setVisible(true);
     }
 
     public void actionPerformed(ActionEvent actionEvent) {
-
-        //変数の定義
 
         long seed;
         int cX;
@@ -114,10 +142,50 @@ public class GUI implements ActionListener {
             return;
         }
 
-        this.output.setText(outputCalculate(seed, cX, cZ));
+        String[] outputText = outputCalculate(seed, cX, cZ);
+        this.output.setText(outputText[0]);
+        this.output.setCaretPosition(0);
+        int maxX = Integer.parseInt(outputText[1]);
+        int maxZ = Integer.parseInt(outputText[2]);
+        updateGrid(seed, cX, cZ, maxX, maxZ);
     }
 
-    public static String outputCalculate(long seed, int cX, int cZ) {
+    private void updateGrid(Long seed, int cX, int cZ, int maxX, int maxZ) {
+        final int GRID_SIZE = 19;
+
+        this.gridPanel.removeAll();
+        this.gridPanel.setLayout(new GridLayout(GRID_SIZE, GRID_SIZE));
+
+        this.gridPanel.repaint();
+
+        for (int i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
+
+            int offsetX = i % GRID_SIZE - GRID_SIZE / 2;
+            int offsetZ = i / GRID_SIZE - GRID_SIZE / 2;
+
+            JLabel label = new JLabel();
+            label.setOpaque(true);
+
+            if (offsetX == 0 && offsetZ == 0) {
+                label.setBorder(BorderFactory.createLineBorder(new Color(128, 0, 128)));
+            } else {
+                label.setBorder(BorderFactory.createLineBorder(Color.lightGray));
+            }
+
+            if (isSlimeChunk(seed, cX + offsetX, cZ + offsetZ) == true) {
+                label.setBackground(new Color(144, 238, 144));
+                this.gridPanel.add(label, BorderLayout.CENTER);
+            } else {
+                label.setBackground(Color.WHITE);
+            }
+            this.gridPanel.add(label);
+        }
+
+        this.gridPanel.revalidate();
+        this.gridPanel.repaint();
+    }
+
+    public static String[] outputCalculate(long seed, int cX, int cZ) {
 
         Map<String, Integer> result = new HashMap<>();
         StringBuilder output = new StringBuilder();
@@ -141,17 +209,41 @@ public class GUI implements ActionListener {
                 }
             }
         }
-        List<Map.Entry<String, Integer>> list = new ArrayList<>(result.entrySet());
-        list.sort(Map.Entry.comparingByValue(Comparator.reverseOrder()));
+        List<Map.Entry<String, Integer>> sortedList = new ArrayList<>(result.entrySet());
+        sortedList.sort(Map.Entry.comparingByValue(Comparator.reverseOrder()));
 
-        for (Map.Entry<String, Integer> entry : list) {
+        for (Map.Entry<String, Integer> entry : sortedList) {
             output.append(entry.getKey())
                     .append(" = ")
                     .append(entry.getValue())
                     .append("\n");
         }
 
-        return output.toString();
+        int index = 0;
+        String firstLine;
+        if (sortedList.get(index) == null){
+            return new String[]{output.toString(),"0","0"};
+        } else {
+            firstLine = sortedList.get(index).toString();
+            int[] maxCoordinate = maxCoord(firstLine);
+            return new String[]{output.toString(), String.valueOf(maxCoordinate[0]), String.valueOf(maxCoordinate[1])};
+        }
+    }
+
+    public static int[] maxCoord(String firstLine) {
+
+        Pattern pattern = Pattern.compile("\\((-?\\d+), (-?\\d+)\\)");
+        Matcher matcher = pattern.matcher(firstLine);
+
+        if (matcher.find()){
+            int maxX = Integer.parseInt(matcher.group(1));
+            int maxZ = Integer.parseInt(matcher.group(2));
+            System.out.println(maxX);
+            System.out.println(maxZ);
+            return new int[]{maxX, maxZ};
+        } else {
+            return new int[]{0,0};
+        }
     }
 
     public static int countSlimeChunks(long seed, int pX, int pZ) {
@@ -190,4 +282,3 @@ public class GUI implements ActionListener {
         );
     }
 }
-
