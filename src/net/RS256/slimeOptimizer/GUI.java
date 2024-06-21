@@ -27,12 +27,17 @@ public class GUI implements ActionListener {
     JButton runButton;
     JCheckBox debugInfoCheckBox;
     JTextField debugLogOutput;
+    JTextField slimeChunkCount;
 //    JComboBox<String> versionComboBox;
 //    JLabel versionLabel;
 
-    private static final int GRID_SIZE = 19;
-    private static final boolean[][] slimeChunkCache = new boolean[GRID_SIZE][GRID_SIZE];
+    private static final int CHUNK_GRID_SIZE = 19;
+    private  static final int CHUNK_CELL_SIZE = 30;
+    private static int SLIME_CHUNK_COUNT_SQUARE = 0;
+    private static int SLIME_CHUNK_COUNT_CIRCLE = 0;
+    private static final boolean[][] slimeChunkCache = new boolean[CHUNK_GRID_SIZE][CHUNK_GRID_SIZE];
     private long executionTime;
+
 
     public static void main(String[] args) {
         new GUI();
@@ -45,6 +50,7 @@ public class GUI implements ActionListener {
         Font MonospaceFont = new Font("consolas", Font.PLAIN, 14);
         UIManager.put("TextField.font", MonospaceFont);
         UIManager.put("TextArea.font", MonospaceFont);
+        Font smallMonospaceFont = new Font("consolas", Font.PLAIN, 10);
 
         Border EmptyBorder = new EmptyBorder(0, 0, 0, 0);
         Border GrayColoredBorder = new LineBorder(Color.GRAY, 1);
@@ -59,18 +65,7 @@ public class GUI implements ActionListener {
         this.panel.add(this.seedLabel);
         this.seed = new JTextField();
         this.seed.setBounds(30, 30, 330, 30);
-        this.seed.setFont(MonospaceFont);
         this.panel.add(this.seed);
-
-        // versionの表示
-
-//        this.versionLabel = new JLabel("Version:");
-//        this.versionLabel.setBounds(270, 0, 90, 30);
-//        this.panel.add(this.versionLabel);
-//        this.versionComboBox = new JComboBox<>(new String[]{"- 1.17", "  1.18", "  1.19 -"});
-//        this.versionComboBox.setBounds(270, 30, 90, 30);
-//        this.versionComboBox.setBackground(Color.white);
-//        this.panel.add(this.versionComboBox);
 
         // cX の表示
 
@@ -105,7 +100,7 @@ public class GUI implements ActionListener {
         this.debugInfoCheckBox.setBounds(270, 120, 90, 30);
         this.panel.add(this.debugInfoCheckBox);
 
-        //debug log の表示
+        // debug log の表示
 
         this.debugLogOutput = new JTextField();
         this.debugLogOutput.setBounds(30, 600, 925, 30);
@@ -113,7 +108,18 @@ public class GUI implements ActionListener {
         this.debugLogOutput.setOpaque(false);
         this.debugLogOutput.setBorder(BorderFactory.createEmptyBorder());
         this.debugLogOutput.setHorizontalAlignment(JTextField.RIGHT);
+        this.debugLogOutput.setFont(smallMonospaceFont);
         this.panel.add(this.debugLogOutput);
+
+        // slimeChunkCount の表示
+
+        this.slimeChunkCount = new JTextField();
+        this.slimeChunkCount.setBounds(30, 600, 330, 30);
+        this.slimeChunkCount.setEditable(false);
+        this.slimeChunkCount.setOpaque(false);
+        this.slimeChunkCount.setBorder(BorderFactory.createEmptyBorder());
+        this.slimeChunkCount.setFont(smallMonospaceFont);
+        this.panel.add(this.slimeChunkCount);
 
         // output の表示
         this.outputLabel = new JLabel("output");
@@ -128,8 +134,7 @@ public class GUI implements ActionListener {
         this.panel.add(scrollPane);
         this.frame.add(this.panel);
 
-        final int CHUNK_GRID_SIZE = 19;
-        final int CHUNK_CELL_SIZE = 30;
+
 
         this.chunkGridPanel.setLayout(new GridLayout(CHUNK_GRID_SIZE, CHUNK_GRID_SIZE, 0, 0));
         this.chunkGridPanel.setBounds(385, 30, CHUNK_GRID_SIZE * CHUNK_CELL_SIZE, CHUNK_GRID_SIZE * CHUNK_CELL_SIZE);
@@ -173,11 +178,12 @@ public class GUI implements ActionListener {
         }
 
         if(this.debugInfoCheckBox.isSelected() == true){
-            measureExecutionTime(()->{
+            measureExecutionTime(() -> {
                 updateChunkGrid(seed, cX, cZ);
                 String[] outputText = outputCalculate(seed, cX, cZ);
                 this.output.setText(outputText[0]);
                 this.output.setCaretPosition(0);
+                this.slimeChunkCount.setText("#: " + SLIME_CHUNK_COUNT_SQUARE + ", O: " + SLIME_CHUNK_COUNT_CIRCLE);
             });
 
             this.debugLogOutput.setText(executionTime + "ms");
@@ -186,15 +192,26 @@ public class GUI implements ActionListener {
             String[] outputText = outputCalculate(seed, cX, cZ);
             this.output.setText(outputText[0]);
             this.output.setCaretPosition(0);
+            this.slimeChunkCount.setText("");
+            this.debugLogOutput.setText("");
         }
     }
 
     private void initializeSlimeChunkCache(long seed, int centerX, int centerZ) {
-        for (int i = 0; i < GRID_SIZE; i++) {
-            for (int j = 0; j < GRID_SIZE; j++) {
-                int offsetX = i - GRID_SIZE / 2;
-                int offsetZ = j - GRID_SIZE / 2;
+        for (int i = 0; i < CHUNK_GRID_SIZE; i++) {
+            for (int j = 0; j < CHUNK_GRID_SIZE; j++) {
+                int offsetX = i - CHUNK_GRID_SIZE / 2;
+                int offsetZ = j - CHUNK_GRID_SIZE / 2;
                 slimeChunkCache[i][j] = isSlimeChunk(seed, centerX + offsetX, centerZ + offsetZ);
+
+                if (slimeChunkCache[i][j] == true && this.debugInfoCheckBox.isSelected() == true) {
+                    if (Math.abs(offsetX) <= 8 == true && Math.abs(offsetZ) <= 8 == true) {
+                        SLIME_CHUNK_COUNT_SQUARE++;
+                    }
+                    if ((offsetX ^ 2 + offsetZ ^ 2) < Math.pow(8, 2) == true && (offsetX ^ 2 + offsetZ ^ 2) > Math.pow(1.5, 2) == true) {
+                        SLIME_CHUNK_COUNT_CIRCLE++;
+                    }
+                }
             }
         }
     }
@@ -202,16 +219,16 @@ public class GUI implements ActionListener {
     private void updateChunkGrid(Long seed, int cX, int cZ) {
 
         this.chunkGridPanel.removeAll();
-        this.chunkGridPanel.setLayout(new GridLayout(GRID_SIZE, GRID_SIZE));
+        this.chunkGridPanel.setLayout(new GridLayout(CHUNK_GRID_SIZE, CHUNK_GRID_SIZE));
 
         this.chunkGridPanel.repaint();
 
         initializeSlimeChunkCache(seed, cX, cZ);
 
-        for (int i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
+        for (int i = 0; i < CHUNK_GRID_SIZE * CHUNK_GRID_SIZE; i++) {
 
-            int offsetX = i % GRID_SIZE - GRID_SIZE / 2;
-            int offsetZ = i / GRID_SIZE - GRID_SIZE / 2;
+            int offsetX = i % CHUNK_GRID_SIZE - CHUNK_GRID_SIZE / 2;
+            int offsetZ = i / CHUNK_GRID_SIZE - CHUNK_GRID_SIZE / 2;
 
             JLabel label = new JLabel();
             label.setOpaque(true);
@@ -222,7 +239,7 @@ public class GUI implements ActionListener {
                 label.setBorder(BorderFactory.createLineBorder(Color.lightGray));
             }
 
-            if (slimeChunkCache[offsetX + GRID_SIZE / 2][offsetZ + GRID_SIZE / 2] == true) {
+            if (slimeChunkCache[offsetX + CHUNK_GRID_SIZE / 2][offsetZ + CHUNK_GRID_SIZE / 2] == true) {
                 label.setBackground(new Color(144, 238, 144));
             } else {
                 label.setBackground(Color.WHITE);
@@ -294,8 +311,8 @@ public class GUI implements ActionListener {
         if (matcher.find()){
             int maxX = Integer.parseInt(matcher.group(1));
             int maxZ = Integer.parseInt(matcher.group(2));
-            System.out.println(maxX);
-            System.out.println(maxZ);
+//            System.out.println(maxX);
+//            System.out.println(maxZ);
             return new int[]{maxX, maxZ};
         } else {
             return new int[]{0,0};
@@ -323,10 +340,10 @@ public class GUI implements ActionListener {
 
     public static boolean isSlimeChunkInCache(long seed, int cX, int cZ, int centerCX, int centerCZ) {
 
-        int offsetX = cX - centerCX + GRID_SIZE / 2;
-        int offsetZ = cZ - centerCZ + GRID_SIZE / 2;
+        int offsetX = cX - centerCX + CHUNK_GRID_SIZE / 2;
+        int offsetZ = cZ - centerCZ + CHUNK_GRID_SIZE / 2;
 
-        if (offsetX >= 0 && offsetX < GRID_SIZE && offsetZ >= 0 && offsetZ < GRID_SIZE) {
+        if (offsetX >= 0 && offsetX < CHUNK_GRID_SIZE && offsetZ >= 0 && offsetZ < CHUNK_GRID_SIZE) {
             return slimeChunkCache[offsetX][offsetZ];
         } else {
             // キャッシュ範囲外の場合は直接計算
