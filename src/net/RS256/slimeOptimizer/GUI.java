@@ -8,11 +8,14 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.swing.*;
+import javax.swing.border.Border;
+import javax.swing.border.EmptyBorder;
+import javax.swing.border.LineBorder;
 
 public class GUI implements ActionListener {
     JPanel panel = new JPanel();
     JFrame frame = new JFrame();
-    JPanel gridPanel = new JPanel();
+    JPanel chunkGridPanel = new JPanel();
     JTextField seed;
     JTextField cX;
     JTextField cZ;
@@ -22,8 +25,14 @@ public class GUI implements ActionListener {
     JLabel outputLabel;
     JTextArea output;
     JButton runButton;
-    JLabel XAxis;
-    JLabel ZAxis;
+    JCheckBox debugInfoCheckBox;
+    JTextField debugLogOutput;
+//    JComboBox<String> versionComboBox;
+//    JLabel versionLabel;
+
+    private static final int GRID_SIZE = 19;
+    private static final boolean[][] slimeChunkCache = new boolean[GRID_SIZE][GRID_SIZE];
+    private long executionTime;
 
     public static void main(String[] args) {
         new GUI();
@@ -32,14 +41,20 @@ public class GUI implements ActionListener {
     public GUI() {
         this.panel.setBorder(BorderFactory.createEmptyBorder(30, 30, 30, 30));
         this.panel.setLayout(null);
-        Font MonospaceFont = new Font("consolas", Font.PLAIN, 14);
 
+        Font MonospaceFont = new Font("consolas", Font.PLAIN, 14);
         UIManager.put("TextField.font", MonospaceFont);
         UIManager.put("TextArea.font", MonospaceFont);
 
+        Border EmptyBorder = new EmptyBorder(0, 0, 0, 0);
+        Border GrayColoredBorder = new LineBorder(Color.GRAY, 1);
+        UIManager.put("Button.border", GrayColoredBorder);
+        UIManager.put("TextField.border", GrayColoredBorder);
+        UIManager.put("TextArea.border", EmptyBorder);
+
         // seed の表示
 
-        this.seedLabel = new JLabel("seed : ");
+        this.seedLabel = new JLabel("seed: ");
         this.seedLabel.setBounds(30, 0, 330, 30);
         this.panel.add(this.seedLabel);
         this.seed = new JTextField();
@@ -47,7 +62,17 @@ public class GUI implements ActionListener {
         this.seed.setFont(MonospaceFont);
         this.panel.add(this.seed);
 
-        // min の表示
+        // versionの表示
+
+//        this.versionLabel = new JLabel("Version:");
+//        this.versionLabel.setBounds(270, 0, 90, 30);
+//        this.panel.add(this.versionLabel);
+//        this.versionComboBox = new JComboBox<>(new String[]{"- 1.17", "  1.18", "  1.19 -"});
+//        this.versionComboBox.setBounds(270, 30, 90, 30);
+//        this.versionComboBox.setBackground(Color.white);
+//        this.panel.add(this.versionComboBox);
+
+        // cX の表示
 
         this.cXLabel = new JLabel("cX");
         this.cXLabel.setBounds(30, 60, 90, 30);
@@ -57,7 +82,7 @@ public class GUI implements ActionListener {
         this.panel.add(this.cX);
         this.cX.setText("0");
 
-        // max の表示
+        // cZ の表示
 
         this.cZLabel = new JLabel("cZ");
         this.cZLabel.setBounds(150, 60, 90, 30);
@@ -74,6 +99,22 @@ public class GUI implements ActionListener {
         this.runButton.addActionListener(this);
         this.panel.add(this.runButton);
 
+        // Debug Info の表示
+
+        this.debugInfoCheckBox = new JCheckBox("Debug Info");
+        this.debugInfoCheckBox.setBounds(270, 120, 90, 30);
+        this.panel.add(this.debugInfoCheckBox);
+
+        //debug log の表示
+
+        this.debugLogOutput = new JTextField();
+        this.debugLogOutput.setBounds(30, 600, 925, 30);
+        this.debugLogOutput.setEditable(false);
+        this.debugLogOutput.setOpaque(false);
+        this.debugLogOutput.setBorder(BorderFactory.createEmptyBorder());
+        this.debugLogOutput.setHorizontalAlignment(JTextField.RIGHT);
+        this.panel.add(this.debugLogOutput);
+
         // output の表示
         this.outputLabel = new JLabel("output");
         this.outputLabel.setBounds(30, 120, 330, 30);
@@ -81,38 +122,28 @@ public class GUI implements ActionListener {
         this.output = new JTextArea();
         this.output.setEditable(false);
         this.output.setBounds(30, 150, 330, 450);
-        this.output.setBorder(BorderFactory.createEtchedBorder());
 
-        // Wrap the JTextArea in a JScrollPane
         JScrollPane scrollPane = new JScrollPane(this.output);
         scrollPane.setBounds(30, 150, 330, 450);
         this.panel.add(scrollPane);
         this.frame.add(this.panel);
 
-        final int GRID_SIZE = 19;
-        final int CELL_SIZE = 30;
-        this.gridPanel.setLayout(new GridLayout(GRID_SIZE, GRID_SIZE, 0, 0));
-        this.gridPanel.setBounds(385, 30, GRID_SIZE * CELL_SIZE, GRID_SIZE * CELL_SIZE);
+        final int CHUNK_GRID_SIZE = 19;
+        final int CHUNK_CELL_SIZE = 30;
 
-        for (int i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
+        this.chunkGridPanel.setLayout(new GridLayout(CHUNK_GRID_SIZE, CHUNK_GRID_SIZE, 0, 0));
+        this.chunkGridPanel.setBounds(385, 30, CHUNK_GRID_SIZE * CHUNK_CELL_SIZE, CHUNK_GRID_SIZE * CHUNK_CELL_SIZE);
+
+        for (int i = 0; i < CHUNK_GRID_SIZE * CHUNK_GRID_SIZE; i++) {
             JPanel cell = new JPanel();
             cell.setBorder(BorderFactory.createLineBorder(Color.lightGray));
             cell.setBackground(Color.WHITE);
-            this.gridPanel.add(cell);
+            this.chunkGridPanel.add(cell);
         }
 
-        this.panel.add(this.gridPanel);
-        this.frame.add(this.panel);
+        this.panel.add(this.chunkGridPanel);
 
-        /*
-        this.XAxis = new JLabel("X →");
-        this.XAxis.setBounds(655, 0, 60, 30);
-        this.panel.add(this.XAxis);
-        this.ZAxis = new JLabel("Z\n\n↓");
-        this.ZAxis.setBounds(360, 300, 60, 90);
-        this.panel.add(this.ZAxis);
-        
-         */
+        this.frame.add(this.panel);
 
         // タイトルとウィンドウサイズの指定
 
@@ -136,27 +167,46 @@ public class GUI implements ActionListener {
             seed = Long.parseLong(this.seed.getText());
             cX = Integer.parseInt(this.cX.getText());
             cZ = Integer.parseInt(this.cZ.getText());
-        }
-        catch (Exception var11) {
-            this.output.setText("Illegal argument");
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this.frame, "Invalid input. Please enter valid numbers.", "Error", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
-        String[] outputText = outputCalculate(seed, cX, cZ);
-        this.output.setText(outputText[0]);
-        this.output.setCaretPosition(0);
-        int maxX = Integer.parseInt(outputText[1]);
-        int maxZ = Integer.parseInt(outputText[2]);
-        updateGrid(seed, cX, cZ, maxX, maxZ);
+        if(this.debugInfoCheckBox.isSelected() == true){
+            measureExecutionTime(()->{
+                updateChunkGrid(seed, cX, cZ);
+                String[] outputText = outputCalculate(seed, cX, cZ);
+                this.output.setText(outputText[0]);
+                this.output.setCaretPosition(0);
+            });
+
+            this.debugLogOutput.setText(executionTime + "ms");
+        } else {
+            updateChunkGrid(seed, cX, cZ);
+            String[] outputText = outputCalculate(seed, cX, cZ);
+            this.output.setText(outputText[0]);
+            this.output.setCaretPosition(0);
+        }
     }
 
-    private void updateGrid(Long seed, int cX, int cZ, int maxX, int maxZ) {
-        final int GRID_SIZE = 19;
+    private void initializeSlimeChunkCache(long seed, int centerX, int centerZ) {
+        for (int i = 0; i < GRID_SIZE; i++) {
+            for (int j = 0; j < GRID_SIZE; j++) {
+                int offsetX = i - GRID_SIZE / 2;
+                int offsetZ = j - GRID_SIZE / 2;
+                slimeChunkCache[i][j] = isSlimeChunk(seed, centerX + offsetX, centerZ + offsetZ);
+            }
+        }
+    }
 
-        this.gridPanel.removeAll();
-        this.gridPanel.setLayout(new GridLayout(GRID_SIZE, GRID_SIZE));
+    private void updateChunkGrid(Long seed, int cX, int cZ) {
 
-        this.gridPanel.repaint();
+        this.chunkGridPanel.removeAll();
+        this.chunkGridPanel.setLayout(new GridLayout(GRID_SIZE, GRID_SIZE));
+
+        this.chunkGridPanel.repaint();
+
+        initializeSlimeChunkCache(seed, cX, cZ);
 
         for (int i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
 
@@ -172,17 +222,23 @@ public class GUI implements ActionListener {
                 label.setBorder(BorderFactory.createLineBorder(Color.lightGray));
             }
 
-            if (isSlimeChunk(seed, cX + offsetX, cZ + offsetZ) == true) {
+            if (slimeChunkCache[offsetX + GRID_SIZE / 2][offsetZ + GRID_SIZE / 2] == true) {
                 label.setBackground(new Color(144, 238, 144));
-                this.gridPanel.add(label, BorderLayout.CENTER);
             } else {
                 label.setBackground(Color.WHITE);
             }
-            this.gridPanel.add(label);
+            this.chunkGridPanel.add(label);
         }
 
-        this.gridPanel.revalidate();
-        this.gridPanel.repaint();
+        this.chunkGridPanel.revalidate();
+        this.chunkGridPanel.repaint();
+    }
+
+    private void measureExecutionTime(Runnable task) {
+        long startTime = System.currentTimeMillis();
+        task.run();
+        long endTime = System.currentTimeMillis();
+        executionTime = endTime - startTime;
     }
 
     public static String[] outputCalculate(long seed, int cX, int cZ) {
@@ -201,7 +257,7 @@ public class GUI implements ActionListener {
                         int pX = currentCX * 16 + bX;
                         int pZ = currentCZ * 16 + bZ;
 
-                        int slimeChunkBlockCount = countSlimeChunks(seed, pX, pZ);
+                        int slimeChunkBlockCount = countSlimeChunkInCache(seed, pX, pZ, cX, cZ);
 
                         String key = "[" + offsetX + ", " + offsetZ + "] (" + pX + ", " + pZ + ")";
                         result.put(key, slimeChunkBlockCount);
@@ -246,7 +302,7 @@ public class GUI implements ActionListener {
         }
     }
 
-    public static int countSlimeChunks(long seed, int pX, int pZ) {
+    public static int countSlimeChunkInCache(long seed, int pX, int pZ, int centerCX, int centerCZ) {
         int slimeChunkBlockCount = 0;
 
         for (int X = pX - 128; X <= pX + 128; X++) {
@@ -257,7 +313,7 @@ public class GUI implements ActionListener {
 
                 if (distance >= 24 * 24 &&
                         distance <= 128 * 128 &&
-                        isSlimeChunk(seed, cX, cZ) == true) {
+                        isSlimeChunkInCache(seed, cX, cZ, centerCX, centerCZ) == true) {
                     slimeChunkBlockCount++;
                 }
             }
@@ -265,11 +321,24 @@ public class GUI implements ActionListener {
         return slimeChunkBlockCount;
     }
 
-    public static boolean isSlimeChunk(long seed, int cX, int cZ) {
+    public static boolean isSlimeChunkInCache(long seed, int cX, int cZ, int centerCX, int centerCZ) {
 
+        int offsetX = cX - centerCX + GRID_SIZE / 2;
+        int offsetZ = cZ - centerCZ + GRID_SIZE / 2;
+
+        if (offsetX >= 0 && offsetX < GRID_SIZE && offsetZ >= 0 && offsetZ < GRID_SIZE) {
+            return slimeChunkCache[offsetX][offsetZ];
+        } else {
+            // キャッシュ範囲外の場合は直接計算
+            return isSlimeChunk(seed, cX, cZ);
+        }
+    }
+
+    public static boolean isSlimeChunk(long seed, int cX, int cZ) {
         Random random = createSlimeRandom(seed, cX, cZ);
         return random.nextInt(10) == 0;
     }
+
 
     public static Random createSlimeRandom(long seed, int chunkX, int chunkZ) {
 
